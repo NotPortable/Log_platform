@@ -2,35 +2,71 @@ import subprocess
 import datetime
 import os
 
-WAD_PATH = "/home/jungwoo/project/doom/freedoom1.wad"
+# ----------------------------------------------------
+# 1) DOOM 로그 파일 위치
+# ----------------------------------------------------
+DOOM_LOG_PATH = "/home/jungwoo/.local/share/chocolate-doom/doom.log"
 
-LOG_DIR = "/home/jungwoo/project/logs"
+# ----------------------------------------------------
+# 2) 파싱된 로그를 저장할 폴더
+# ----------------------------------------------------
+SAVE_DIR = "/home/jungwoo/project/logs"
+
 
 def main():
-    os.makedirs(LOG_DIR, exist_ok = True)
+    # -------------------------------------------
+    # logs 폴더 생성
+    # -------------------------------------------
+    os.makedirs(SAVE_DIR, exist_ok=True)
 
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    log_path = os.path.join(LOG_DIR, f"doom_{timestamp}.log")
+    save_path = os.path.join(SAVE_DIR, f"parsed_{timestamp}.log")
 
-    print(f"[INFO] Log storage loation : {log_path}")
+    print(f"[INFO] Saving parsed events to: {save_path}")
+    print("[INFO] Waiting for DOOM events...\n")
 
+    # -------------------------------------------
+    # tail -F 로 doom.log 실시간 감시
+    # -------------------------------------------
     process = subprocess.Popen(
-        ["chocolate-doom", "-window","-iwad", WAD_PATH],
-        stdout = subprocess.PIPE,
-        stderr = subprocess.STDOUT,
-        text = True,
-        bufsize = 1
+        ["tail", "-F", DOOM_LOG_PATH],   # doom.log 실시간 읽기
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True
     )
 
-with open(log_path, "w") as logfile:
+    # -------------------------------------------
+    # 로그 저장 파일 준비
+    # -------------------------------------------
+    with open(save_path, "w") as outfile:
+        for line in process.stdout:
+            line = line.strip()
 
-    for line in process.stdout:
-        line = line.strip()
+            # 빈 줄(공백)은 무시
+            if not line:
+                continue
 
-        print(line)
+            print(line)                # 콘솔 출력
+            outfile.write(line + "\n") # 파일 저장
 
-        logfile.write(line + "\n")
-    print("[INFO] DOOM 종료됨. 파서도 종료")
+            # -------------------------------------------
+            # 이벤트 감지 (정우가 원하는 핵심 부분)
+            # -------------------------------------------
+
+            lower = line.lower()
+
+            if "damage" in lower:
+                print("\n[EVENT] Player Damaged!\n")
+
+            if "killed" in lower or "died" in lower:
+                print("\n[EVENT] Monster killed!\n")
+
+            if "picked up" in lower:
+                print("\n[EVENT] Item pickup!\n")
+
+            if "completed" in lower:
+                print("\n[EVENT] Level Completed!\n")
+
 
 if __name__ == "__main__":
     main()
